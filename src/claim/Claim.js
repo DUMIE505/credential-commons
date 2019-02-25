@@ -1,10 +1,25 @@
-const _ = require('lodash');
+import map from 'lodash/map';
+import split from 'lodash/split';
+import find from 'lodash/find';
+import includes from 'lodash/includes';
+import each from 'lodash/each';
+import reduce from 'lodash/reduce';
+import sortBy from 'lodash/sortBy';
+import keys from 'lodash/keys';
+import camelCase from 'lodash/camelCase';
+import forEach from 'lodash/forEach';
+import isString from 'lodash/isString';
+import lowerCase from 'lodash/lowerCase';
+import upperFirst from 'lodash/upperFirst';
+import filter from 'lodash/filter';
+import mixin from 'lodash/mixin';
+
 const sjcl = require('sjcl');
 const { UserCollectableAttribute } = require('@identity.com/uca');
 const definitions = require('./definitions');
 const { services } = require('../services');
 
-const validIdentifiers = _.map(definitions, d => d.identifier);
+const validIdentifiers = map(definitions, d => d.identifier);
 
 function getBaseIdentifiers(identifier) {
   const claimRegex = /claim-cvc:(.*)\.(.*)-v\d*/;
@@ -12,7 +27,7 @@ function getBaseIdentifiers(identifier) {
 
   let identifierComponents = claimRegex.exec(identifier);
   if (identifierComponents === null) {
-    identifierComponents = _.split(identifier, ':');
+    identifierComponents = split(identifier, ':');
     isNewIdentifier = false;
   }
   return { identifierComponents, isNewIdentifier };
@@ -21,9 +36,9 @@ function getBaseIdentifiers(identifier) {
 function adaptIdentifierIfNeeded(identifier) {
   const { isNewIdentifier, identifierComponents } = getBaseIdentifiers(identifier);
 
-  if (!isNewIdentifier && !_.find(definitions, { identifier })) {
+  if (!isNewIdentifier && !find(definitions, { identifier })) {
     const newIdentifier = `claim-cvc:${identifierComponents[1]}.${identifierComponents[2]}-v1`;
-    const foundNewIdentifier = _.find(definitions, { identifier: newIdentifier });
+    const foundNewIdentifier = find(definitions, { identifier: newIdentifier });
     if (foundNewIdentifier) {
       return newIdentifier;
     }
@@ -50,8 +65,8 @@ class Claim extends UserCollectableAttribute {
   initializeAttestableValue() {
     const { value } = this;
     const definition = this.version
-      ? _.find(definitions, { identifier: this.identifier, version: this.version })
-      : _.find(definitions, { identifier: this.identifier });
+      ? find(definitions, { identifier: this.identifier, version: this.version })
+      : find(definitions, { identifier: this.identifier });
 
     // Trying to construct UCA with a existing attestableValue
     const parsedAttestableValue = Claim.parseAttestableValue(value);
@@ -60,7 +75,7 @@ class Claim extends UserCollectableAttribute {
       this.timestamp = null;
       this.salt = parsedAttestableValue[0].salt;
       const ucaValue = parsedAttestableValue[0].value;
-      this.value = _.includes(['null', 'undefined'], ucaValue) ? null : ucaValue;
+      this.value = includes(['null', 'undefined'], ucaValue) ? null : ucaValue;
     } else {
       const ucaValue = {};
       for (let i = 0; i < parsedAttestableValue.length; i += 1) {
@@ -96,9 +111,9 @@ class Claim extends UserCollectableAttribute {
 
   static parseAttestableValue(value) {
     const values = [];
-    const splitPipes = _.split(value.attestableValue, '|');
+    const splitPipes = split(value.attestableValue, '|');
     const attestableValueRegex = /^urn:(\w+(?:\.\w+)*):(\w+):(.+)/;
-    _.each(splitPipes, (stringValue) => {
+    each(splitPipes, (stringValue) => {
       const match = attestableValueRegex.exec(stringValue);
       if (match && match.length === 4) {
         const v = {
@@ -119,7 +134,7 @@ class Claim extends UserCollectableAttribute {
   findDefinitionByAttestableValue(attestableValuePropertyName, rootDefinition) {
     // eslint-disable-next-line no-restricted-syntax
     for (const property of rootDefinition.type.properties) {
-      const resolvedDefinition = _.find(definitions, { identifier: property.type });
+      const resolvedDefinition = find(definitions, { identifier: property.type });
       resolvedDefinition.type = UserCollectableAttribute.resolveType(resolvedDefinition, definitions);
       if (!resolvedDefinition.type.properties && property.name === attestableValuePropertyName) {
         return property.type;
@@ -143,7 +158,7 @@ class Claim extends UserCollectableAttribute {
     if (['String', 'Number', 'Boolean'].indexOf(this.type) >= 0) {
       return `urn:${propertyName}:${this.salt}:${this.value}|`;
     }
-    return _.reduce(_.sortBy(_.keys(this.value)),
+    return reduce(sortBy(keys(this.value)),
       (s, k) => `${s}${this.value[k].getAttestableValue(propertyName)}`, '');
   }
 
@@ -156,7 +171,7 @@ class Claim extends UserCollectableAttribute {
 
   getClaimRootPropertyName() {
     const { identifierComponents } = getBaseIdentifiers(this.identifier);
-    return _.camelCase(identifierComponents[1]);
+    return camelCase(identifierComponents[1]);
   }
 
   getClaimPropertyName() {
@@ -170,19 +185,19 @@ class Claim extends UserCollectableAttribute {
 
   static getPath(identifier) {
     const { identifierComponents } = getBaseIdentifiers(identifier);
-    const baseName = _.camelCase(identifierComponents[1]);
+    const baseName = camelCase(identifierComponents[1]);
     return `${baseName}.${identifierComponents[2]}`;
   }
 
   getAttestableValues() {
     const values = [];
-    const def = _.find(definitions, { identifier: this.identifier, version: this.version });
+    const def = find(definitions, { identifier: this.identifier, version: this.version });
     if (def.credentialItem || def.attestable) {
       values.push({ identifier: this.identifier, value: this.getAttestableValue() });
       if (this.type === 'Object') {
-        _.forEach(_.keys(this.value), (k) => {
+        forEach(keys(this.value), (k) => {
           const innerValues = this.value[k].getAttestableValues();
-          _.reduce(innerValues, (res, iv) => res.push(iv), values);
+          reduce(innerValues, (res, iv) => res.push(iv), values);
         });
       }
     }
@@ -194,9 +209,9 @@ class Claim extends UserCollectableAttribute {
    * @param {*} definition
    */
   static getTypeName(definition) {
-    if (_.isString(definition.type)) {
-      if (_.includes(validIdentifiers, definition.type)) {
-        const innerDefinition = _.find(definitions, { identifier: definition.type });
+    if (isString(definition.type)) {
+      if (includes(validIdentifiers, definition.type)) {
+        const innerDefinition = find(definitions, { identifier: definition.type });
         return this.getTypeName(innerDefinition);
       }
 
@@ -206,41 +221,41 @@ class Claim extends UserCollectableAttribute {
   }
 
   static getAllProperties(identifier, pathName) {
-    const definition = _.find(definitions, { identifier });
+    const definition = find(definitions, { identifier });
     const properties = [];
     const type = UserCollectableAttribute.resolveType(definition, definitions);
-    const typeDefinition = _.isString(type) ? _.find(definitions, { identifier: type }) : definition;
+    const typeDefinition = isString(type) ? find(definitions, { identifier: type }) : definition;
 
     if (typeDefinition && this.getTypeName(typeDefinition) === 'Object') {
       let typeDefProps;
       if (typeDefinition.type.properties) {
         typeDefProps = typeDefinition.type.properties;
       } else {
-        const typeDefDefinition = _.find(definitions, { identifier: typeDefinition.type });
+        const typeDefDefinition = find(definitions, { identifier: typeDefinition.type });
         typeDefProps = UserCollectableAttribute.resolveType(typeDefDefinition, definitions).properties;
       }
 
       let basePropName;
       const { identifierComponents: baseIdentifierComponents } = getBaseIdentifiers(identifier);
       if (pathName) {
-        if (_.includes(pathName, _.lowerCase(baseIdentifierComponents[1]))) {
+        if (includes(pathName, lowerCase(baseIdentifierComponents[1]))) {
           basePropName = `${pathName}`;
         } else {
-          basePropName = `${pathName}.${_.lowerCase(baseIdentifierComponents[1])}.${baseIdentifierComponents[2]}`;
+          basePropName = `${pathName}.${lowerCase(baseIdentifierComponents[1])}.${baseIdentifierComponents[2]}`;
         }
       } else {
-        basePropName = `${_.lowerCase(baseIdentifierComponents[1])}.${baseIdentifierComponents[2]}`;
+        basePropName = `${lowerCase(baseIdentifierComponents[1])}.${baseIdentifierComponents[2]}`;
       }
 
-      if (_.includes(['String', 'Number', 'Boolean'], `${typeDefProps.type}`)) {
+      if (includes(['String', 'Number', 'Boolean'], `${typeDefProps.type}`)) {
         // Properties is not an object
         properties.push(`${basePropName}.${typeDefProps.name}`);
       } else {
-        _.forEach(typeDefProps, (prop) => {
+        forEach(typeDefProps, (prop) => {
           const { isNewIdentifier } = getBaseIdentifiers(prop.type);
           const newBasePropName = !isNewIdentifier ? basePropName : `${basePropName}.${prop.name}`;
           const proProperties = this.getAllProperties(prop.type, newBasePropName);
-          _.forEach(proProperties, p => properties.push(p));
+          forEach(proProperties, p => properties.push(p));
         });
       }
     } else if (pathName) {
@@ -254,7 +269,7 @@ class Claim extends UserCollectableAttribute {
       properties.push(propertiesName);
     } else {
       const { identifierComponents } = getBaseIdentifiers(identifier);
-      const propertiesName = `${_.lowerCase(identifierComponents[1])}.${identifierComponents[2]}`;
+      const propertiesName = `${lowerCase(identifierComponents[1])}.${identifierComponents[2]}`;
       properties.push(propertiesName);
     }
     return properties;
@@ -264,13 +279,13 @@ class Claim extends UserCollectableAttribute {
 function convertIdentifierToClassName(identifier) {
   const { identifierComponents } = getBaseIdentifiers(identifier);
   const baseName = identifierComponents[1];
-  const detailName = _.upperFirst(_.camelCase(identifierComponents[2]));
+  const detailName = upperFirst(camelCase(identifierComponents[2]));
   return `${baseName}${detailName}`;
 }
 
 function mixinIdentifiers(UCA) {
   // Extend UCA Semantic
-  _.forEach(_.filter(definitions, d => d.credentialItem), (def) => {
+  forEach(filter(definitions, d => d.credentialItem), (def) => {
     const name = convertIdentifierToClassName(def.identifier);
     const source = {};
     const { identifier } = def;
@@ -281,7 +296,7 @@ function mixinIdentifiers(UCA) {
     }
 
     source[name] = UCAConstructor;
-    _.mixin(Claim, source);
+    mixin(Claim, source);
   });
   return UCA;
 }

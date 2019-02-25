@@ -19,7 +19,7 @@
   "scripts": {
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "npm run lint -- --fix",
-    "test": "cross-env NODE_ENV=false jest",
+    "test": "cross-env NODE_ENV=test jest",
     "test:watch": "jest --watch",
     "check": "npm run lint && npm run test",
     "check-schemas": "cross-env NODE_ENV=false jest --no-coverage __integrations__/schemas/",
@@ -39,12 +39,13 @@
     "release:create": "hub release create -m v$npm_package_version v$npm_package_version"
   },
   "devDependencies": {
-    "babel-cli": "^6.26.0",
-    "babel-core": "^6.24.1",
-    "babel-jest": "^23.4.0",
+    "@babel/cli": "^7.2.2",
+    "@babel/core": "^7.2.2",
+    "@babel/plugin-transform-runtime": "^7.2.0",
+    "@babel/preset-env": "^7.2.0",
+    "@babel/runtime": "^7.3.1",
+    "babel-jest": "^24.0.0",
     "babel-minify": "^0.4.3",
-    "babel-plugin-transform-runtime": "^6.23.0",
-    "babel-preset-env": "^1.6.1",
     "eslint": "^4.19.1",
     "eslint-config-airbnb": "^17.0.0",
     "eslint-config-airbnb-base": "^13.0.0",
@@ -54,10 +55,11 @@
     "eslint-plugin-no-only-tests": "^2.0.0",
     "eslint-plugin-react": "^7.10.0",
     "husky": "^1.1.2",
-    "jest": "^23.6.0",
+    "jest": "^24.0.0",
     "jest-html-reporter": "^2.3.0",
     "request-debug": "^0.2.0",
-    "rimraf": "^2.6.2"
+    "rimraf": "^2.6.2",
+    "webpack-bundle-analyzer": "^3.0.4"
   },
   "dependencies": {
     "@identity.com/uca": "1.0.0-rc.1",

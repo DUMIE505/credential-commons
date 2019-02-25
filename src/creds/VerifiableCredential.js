@@ -1,4 +1,33 @@
-const _ = require('lodash');
+import endsWith from 'lodash/endsWith';
+import map from 'lodash/map';
+import find from 'lodash/find';
+import includes from 'lodash/includes';
+import each from 'lodash/each';
+import reduce from 'lodash/reduce';
+import keys from 'lodash/keys';
+import forEach from 'lodash/forEach';
+import get from 'lodash/get';
+import filter from 'lodash/filter';
+import clone from 'lodash/clone';
+import ceil from 'lodash/ceil';
+import merge from 'lodash/merge';
+import concat from 'lodash/concat';
+import isEmpty from 'lodash/isEmpty';
+import remove from 'lodash/remove';
+import unset from 'lodash/unset';
+import set from 'lodash/set';
+import cloneDeep from 'lodash/cloneDeep';
+import indexOf from 'lodash/indexOf';
+import findLastIndex from 'lodash/findLastIndex';
+import lastIndexOf from 'lodash/lastIndexOf';
+import isNil from 'lodash/isNil';
+import isFunction from 'lodash/isFunction';
+import pick from 'lodash/pick';
+import difference from 'lodash/difference';
+import fromPairs from 'lodash/fromPairs';
+import sortBy from 'lodash/sortBy';
+import toPairs from 'lodash/toPairs';
+
 const sift = require('sift');
 const MerkleTools = require('merkle-tools');
 const sjcl = require('sjcl');
@@ -15,24 +44,20 @@ function sha256(string) {
 
 function getClaimPath(identifier, claimsPathRef) {
   const sufix = Claim.getPath(identifier);
-  const claimPath = _.find(claimsPathRef, o => _.endsWith(o, sufix));
+  const claimPath = find(claimsPathRef, o => endsWith(o, sufix));
   return claimPath || sufix;
 }
 
 function validIdentifiers() {
-  const vi = _.map(definitions, d => d.identifier);
+  const vi = map(definitions, d => d.identifier);
   return vi;
 }
 
 function getClaimsWithFlatKeys(claims) {
   const flattenDepth3 = flatten(claims, { maxDepth: 3 });
   const flattenDepth2 = flatten(claims, { maxDepth: 2 });
-  const flattenClaim = _.merge({}, flattenDepth3, flattenDepth2);
-  const flattenSortedKeysClaim = _(flattenClaim)
-    .toPairs()
-    .sortBy(0)
-    .fromPairs()
-    .value();
+  const flattenClaim = merge({}, flattenDepth3, flattenDepth2);
+  const flattenSortedKeysClaim = fromPairs(sortBy(toPairs(flattenClaim)));
   return flattenSortedKeysClaim;
 }
 
@@ -64,7 +89,7 @@ function paths(root) {
 }
 
 function getLeavesClaimPaths(signLeaves) {
-  return _.map(signLeaves, 'claimPath');
+  return map(signLeaves, 'claimPath');
 }
 
 function verifyLeave(leave, merkleTools, claims, signature, invalidValues, invalidHashs, invalidProofs) {
@@ -72,16 +97,16 @@ function verifyLeave(leave, merkleTools, claims, signature, invalidValues, inval
   // 1.1 "leave.value" should be equal claim values
   const ucaValue = new Claim(leave.identifier, { attestableValue: leave.value });
   if (ucaValue.type === 'String' || ucaValue.type === 'Number') {
-    if (ucaValue.value !== _.get(claims, leave.claimPath)) {
+    if (ucaValue.value !== get(claims, leave.claimPath)) {
       invalidValues.push(leave.value);
     }
   } else if (ucaValue.type === 'Object') {
     const ucaValueValue = ucaValue.value;
-    const claimValue = _.get(claims, leave.claimPath);
-    const ucaValueKeys = _.keys(ucaValue.value);
-    _.each(ucaValueKeys, (k) => {
+    const claimValue = get(claims, leave.claimPath);
+    const ucaValueKeys = keys(ucaValue.value);
+    each(ucaValueKeys, (k) => {
       const expectedClaimValue = claimValue[k];
-      if (expectedClaimValue && _.get(ucaValueValue[k], 'value') !== expectedClaimValue) {
+      if (expectedClaimValue && get(ucaValueValue[k], 'value') !== expectedClaimValue) {
         invalidValues.push(claimValue[k]);
       }
     });
@@ -106,7 +131,7 @@ function verifyLeave(leave, merkleTools, claims, signature, invalidValues, inval
 function transformConstraint(constraints) {
   const resultConstraints = [];
 
-  _.forEach(constraints.claims, (constraint) => {
+  forEach(constraints.claims, (constraint) => {
     if (!constraint.path) {
       throw new Error('Malformed contraint: missing PATTH');
     }
@@ -141,23 +166,23 @@ class CvcMerkleProof {
 
   buildMerkleTree(claimsPathRef) {
     const merkleTools = new MerkleTools();
-    const hashes = _.map(this.leaves, n => sha256(n.value));
+    const hashes = map(this.leaves, n => sha256(n.value));
     merkleTools.addLeaves(hashes);
     merkleTools.makeTree();
-    _.forEach(hashes, (hash, idx) => {
+    forEach(hashes, (hash, idx) => {
       this.leaves[idx].claimPath = getClaimPath(this.leaves[idx].identifier, claimsPathRef);
       this.leaves[idx].targetHash = hash;
       this.leaves[idx].node = merkleTools.getProof(idx);
     });
-    this.leaves = _.filter(this.leaves, el => !(el.identifier === 'cvc:Random:node'));
+    this.leaves = filter(this.leaves, el => !(el.identifier === 'cvc:Random:node'));
     this.merkleRoot = merkleTools.getMerkleRoot().toString('hex');
   }
 
   static padTree(nodes) {
     const currentLength = nodes.length;
     const targetLength = currentLength < CvcMerkleProof.PADDING_INCREMENTS ? CvcMerkleProof.PADDING_INCREMENTS
-      : _.ceil(currentLength / CvcMerkleProof.PADDING_INCREMENTS) * CvcMerkleProof.PADDING_INCREMENTS;
-    const newNodes = _.clone(nodes);
+      : ceil(currentLength / CvcMerkleProof.PADDING_INCREMENTS) * CvcMerkleProof.PADDING_INCREMENTS;
+    const newNodes = clone(nodes);
     const secureRandom = services.container.SecureRandom;
     while (newNodes.length < targetLength) {
       newNodes.push(new Claim('cvc:Random:node', secureRandom.wordWith(16)));
@@ -167,9 +192,9 @@ class CvcMerkleProof {
 
   static getAllAttestableValue(ucas) {
     const values = [];
-    _.forEach(ucas, (uca) => {
+    forEach(ucas, (uca) => {
       const innerValues = uca.getAttestableValues();
-      _.reduce(innerValues, (res, iv) => {
+      reduce(innerValues, (res, iv) => {
         res.push(iv);
         return res;
       }, values);
@@ -182,7 +207,7 @@ class CvcMerkleProof {
  */
 class ClaimModel {
   constructor(ucas) {
-    _.forEach(ucas, (uca) => {
+    forEach(ucas, (uca) => {
       const rootPropertyName = uca.getClaimRootPropertyName();
       if (!this[rootPropertyName]) {
         this[rootPropertyName] = {};
@@ -217,15 +242,15 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
   this.expirationDate = expiryIn ? timestamp.toDate(timestamp.now(expiryIn)).toISOString() : null;
   const expiryUCA = new Claim('cvc:Meta:expirationDate', this.expirationDate ? this.expirationDate : 'null');
 
-  const proofUCAs = expiryUCA ? _.concat(ucas, issuerUCA, issuanceDateUCA, expiryUCA)
-    : _.concat(ucas, issuerUCA, issuanceDateUCA);
+  const proofUCAs = expiryUCA ? concat(ucas, issuerUCA, issuanceDateUCA, expiryUCA)
+    : concat(ucas, issuerUCA, issuanceDateUCA);
 
-  if (!_.includes(validIdentifiers(), identifier)) {
+  if (!includes(validIdentifiers(), identifier)) {
     throw new Error(`${identifier} is not defined`);
   }
 
-  const definition = version ? _.find(definitions, { identifier, version: `${version}` })
-    : _.find(definitions, { identifier });
+  const definition = version ? find(definitions, { identifier, version: `${version}` })
+    : find(definitions, { identifier });
   if (!definition) {
     throw new Error(`Credential definition for ${identifier} v${version} not found`);
   }
@@ -233,16 +258,16 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
   this.type = ['Credential', identifier];
 
   // ucas can be empty here if it is been constructed from JSON
-  if (!_.isEmpty(ucas)) {
+  if (!isEmpty(ucas)) {
     this.claim = new ClaimModel(ucas);
     const claimsPathRef = paths(this.claim);
-    const deepKeys = _.keys(flatten(this.claim, { safe: true }));
+    const deepKeys = keys(flatten(this.claim, { safe: true }));
     const allClaimsPaths = claimsPathRef.concat(deepKeys);
     this.proof = new CvcMerkleProof(proofUCAs, allClaimsPaths);
-    if (!_.isEmpty(definition.excludes)) {
-      const removed = _.remove(this.proof.leaves, el => _.includes(definition.excludes, el.identifier));
-      _.forEach(removed, (r) => {
-        _.unset(this.claim, r.claimPath);
+    if (!isEmpty(definition.excludes)) {
+      const removed = remove(this.proof.leaves, el => includes(definition.excludes, el.identifier));
+      forEach(removed, (r) => {
+        unset(this.claim, r.claimPath);
       });
     }
     // The VC Grantted session (see .grantUsageFor)
@@ -259,12 +284,12 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
    * @param {*} requestedClaims
    */
   this.filter = (requestedClaims) => {
-    const filtered = _.cloneDeep(this);
-    _.remove(filtered.proof.leaves, el => !_.includes(requestedClaims, el.identifier));
+    const filtered = cloneDeep(this);
+    remove(filtered.proof.leaves, el => !includes(requestedClaims, el.identifier));
 
     filtered.claim = {};
-    _.forEach(filtered.proof.leaves, (el) => {
-      _.set(filtered.claim, el.claimPath, _.get(this.claim, el.claimPath));
+    forEach(filtered.proof.leaves, (el) => {
+      set(filtered.claim, el.claimPath, get(this.claim, el.claimPath));
     });
 
     return filtered;
@@ -290,7 +315,7 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
    */
   this.requestAnchor = async (options) => {
     const anchorService = services.container.AnchorService;
-    const updatedOption = _.merge({},
+    const updatedOption = merge({},
       options,
       {
         subject: {
@@ -319,10 +344,10 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
    * @returns {boolean}
    */
   this.verifyProofs = () => {
-    const expiry = _.clone(this.expirationDate);
-    const claims = _.clone(this.claim);
-    const signature = _.clone(this.proof);
-    const signLeaves = _.get(signature, 'leaves');
+    const expiry = clone(this.expirationDate);
+    const claims = clone(this.claim);
+    const signature = clone(this.proof);
+    const signLeaves = get(signature, 'leaves');
     let valid = false;
 
     const merkleTools = new MerkleTools();
@@ -333,15 +358,15 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
     const invalidValues = [];
     const invalidHashs = [];
     const invalidProofs = [];
-    _.forEach(_.keys(claimsWithFlatKeys), (claimKey) => {
+    forEach(keys(claimsWithFlatKeys), (claimKey) => {
       // check if `claimKey` has a `claimPath` proof
-      const leaveIdx = _.indexOf(leavesClaimPaths, claimKey);
+      const leaveIdx = indexOf(leavesClaimPaths, claimKey);
       // if not found
       if (leaveIdx === -1) {
         // .. still test if parent key node may have a `claimPath` proof
-        _.findLastIndex(claimKey, '.');
-        const parentClaimKey = claimKey.substring(0, _.lastIndexOf(claimKey, '.'));
-        if (_.indexOf(leavesClaimPaths, parentClaimKey) > -1) {
+        findLastIndex(claimKey, '.');
+        const parentClaimKey = claimKey.substring(0, lastIndexOf(claimKey, '.'));
+        if (indexOf(leavesClaimPaths, parentClaimKey) > -1) {
           // if yes, no problem, go to next loop
           return;
         }
@@ -354,7 +379,7 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
     });
 
     // It has to be present Credential expiry even with null value
-    const expiryIdx = _.indexOf(leavesClaimPaths, 'meta.expirationDate');
+    const expiryIdx = indexOf(leavesClaimPaths, 'meta.expirationDate');
     if (expiryIdx >= 0) {
       const expiryLeave = signLeaves[expiryIdx];
       const metaClaim = {
@@ -377,11 +402,11 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
         }
       }
     }
-    if (_.isEmpty(invalidClaim)
-        && _.isEmpty(invalidValues)
-        && _.isEmpty(invalidHashs)
-        && _.isEmpty(invalidProofs)
-        && _.isEmpty(invalidExpiry)) {
+    if (isEmpty(invalidClaim)
+        && isEmpty(invalidValues)
+        && isEmpty(invalidHashs)
+        && isEmpty(invalidProofs)
+        && isEmpty(invalidExpiry)) {
       valid = true;
     }
     return valid;
@@ -393,7 +418,7 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
    */
   this.verify = (higherVerifyLevel, options) => {
     const { requestorId, requestId, keyName } = options || {};
-    const hVerifyLevel = !_.isNil(higherVerifyLevel) ? higherVerifyLevel : VERIFY_LEVELS.GRANTED;
+    const hVerifyLevel = !isNil(higherVerifyLevel) ? higherVerifyLevel : VERIFY_LEVELS.GRANTED;
     let verifiedlevel = VERIFY_LEVELS.INVALID;
 
     // Test next level
@@ -441,7 +466,7 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
     const siftConstraints = transformConstraint(constraints);
     let result = true;
 
-    _.forEach(siftConstraints, (constraint) => {
+    forEach(siftConstraints, (constraint) => {
       result = (sift.indexOf(constraint, [this.claim]) > -1);
       return result;
     });
@@ -459,7 +484,7 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
    * @param  {string} option.pvtKey - A pvtKey in base58 format (default impl).
    */
   this.grantUsageFor = (requestorId, requestId, { keyName, pvtKey }) => {
-    if (_.isEmpty(_.get(this.proof, 'anchor.subject.label')) || _.isEmpty(_.get(this.proof, 'anchor.subject.pub'))) {
+    if (isEmpty(get(this.proof, 'anchor.subject.label')) || isEmpty(get(this.proof, 'anchor.subject.pub'))) {
       throw new Error('Invalid credential attestation/anchor');
     }
     if (!this.verifySignature()) {
@@ -476,7 +501,7 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
 
     let signKey = keyName;
     if (pvtKey) {
-      if (!_.isFunction(cryptoManager.installKey)) {
+      if (!isFunction(cryptoManager.installKey)) {
         throw new Error('You provide a `pvtKey` but the CryptoManager does not support it, use a `keyName` instead.');
       }
       signKey = `TEMP_KEY_NAME_${new Date().getTime()}`;
@@ -494,10 +519,10 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
    */
   this.verifyGrant = (requestorId, requestId, keyName) => {
     let verified = false;
-    if (_.isEmpty(_.get(this.proof, 'anchor.subject.label')) || _.isEmpty(_.get(this.proof, 'anchor.subject.pub'))) {
+    if (isEmpty(get(this.proof, 'anchor.subject.label')) || isEmpty(get(this.proof, 'anchor.subject.pub'))) {
       return verified;
     }
-    if (_.isEmpty(this.granted)) {
+    if (isEmpty(this.granted)) {
       return verified;
     }
     if (!requestorId || !requestId) {
@@ -510,12 +535,12 @@ function VerifiableCredentialBaseConstructor(identifier, issuer, expiryIn, ucas,
     const cryptoManager = services.container.CryptoManager;
 
     let verifyKey = keyName;
-    if (_.isEmpty(verifyKey)) {
-      if (!_.isFunction(cryptoManager.installKey)) {
+    if (isEmpty(verifyKey)) {
+      if (!isFunction(cryptoManager.installKey)) {
         throw new Error('CryptoManager does not support intallKey, please use a `keyName` instead.');
       }
       verifyKey = `TEMP_KEY_NAME_${new Date().getTime()}`;
-      const anchorPubKey = _.get(this.proof, 'anchor.subject.pub');
+      const anchorPubKey = get(this.proof, 'anchor.subject.pub');
       cryptoManager.installKey(verifyKey, anchorPubKey);
     }
     verified = cryptoManager.verify(verifyKey, hexHash, this.granted);
@@ -543,7 +568,7 @@ const CREDENTIAL_META_FIELDS = [
  *
  * @param {*} vc
  */
-const getCredentialMeta = vc => _.pick(vc, CREDENTIAL_META_FIELDS);
+const getCredentialMeta = vc => pick(vc, CREDENTIAL_META_FIELDS);
 
 /**
  *
@@ -553,12 +578,12 @@ function transformMetaConstraint(constraintsMeta) {
   const resultConstraints = [];
 
   // handle special field constraints.meta.credential
-  // const constraintsMetaCredential = _.get(constraintsMeta, 'meta.credential');
+  // const constraintsMetaCredential = get(constraintsMeta, 'meta.credential');
   // if (constraintsMetaCredential) {
   //   return { identifier: constraintsMetaCredential };
   // }
-  const constraintsMetaKeys = _.keys(constraintsMeta.meta);
-  _.forEach(constraintsMetaKeys, (constraintKey) => {
+  const constraintsMetaKeys = keys(constraintsMeta.meta);
+  forEach(constraintsMetaKeys, (constraintKey) => {
     const constraint = constraintsMeta.meta[constraintKey];
     const siftConstraint = {};
     // handle special field constraints.meta.credential
@@ -588,8 +613,8 @@ function transformMetaConstraint(constraintsMeta) {
  */
 const isMatchCredentialMeta = (credentialMeta, constraintsMeta) => {
   const siftConstraints = transformMetaConstraint(constraintsMeta);
-  let result = !_.isEmpty(siftConstraints) && true;
-  _.forEach(siftConstraints, (constraint) => {
+  let result = !isEmpty(siftConstraints) && true;
+  forEach(siftConstraints, (constraint) => {
     result = (sift.indexOf(constraint, [credentialMeta]) > -1) && result;
   });
   return result;
@@ -606,15 +631,15 @@ VerifiableCredentialBaseConstructor.isMatchCredentialMeta = isMatchCredentialMet
 VerifiableCredentialBaseConstructor.fromJSON = (verifiableCredentialJSON) => {
   const newObj = new VerifiableCredentialBaseConstructor(verifiableCredentialJSON.identifier,
     verifiableCredentialJSON.issuer);
-  newObj.id = _.clone(verifiableCredentialJSON.id);
-  newObj.issuanceDate = _.clone(verifiableCredentialJSON.issuanceDate);
-  newObj.expirationDate = _.clone(verifiableCredentialJSON.expirationDate);
-  newObj.identifier = _.clone(verifiableCredentialJSON.identifier);
-  newObj.version = _.clone(verifiableCredentialJSON.version);
-  newObj.type = _.cloneDeep(verifiableCredentialJSON.type);
-  newObj.claim = _.cloneDeep(verifiableCredentialJSON.claim);
-  newObj.proof = _.cloneDeep(verifiableCredentialJSON.proof);
-  newObj.granted = _.clone(verifiableCredentialJSON.granted) || null;
+  newObj.id = clone(verifiableCredentialJSON.id);
+  newObj.issuanceDate = clone(verifiableCredentialJSON.issuanceDate);
+  newObj.expirationDate = clone(verifiableCredentialJSON.expirationDate);
+  newObj.identifier = clone(verifiableCredentialJSON.identifier);
+  newObj.version = clone(verifiableCredentialJSON.version);
+  newObj.type = cloneDeep(verifiableCredentialJSON.type);
+  newObj.claim = cloneDeep(verifiableCredentialJSON.claim);
+  newObj.proof = cloneDeep(verifiableCredentialJSON.proof);
+  newObj.granted = clone(verifiableCredentialJSON.granted) || null;
   return newObj;
 };
 
@@ -622,17 +647,17 @@ VerifiableCredentialBaseConstructor.fromJSON = (verifiableCredentialJSON) => {
  * List all properties of a Verifiable Credential
  */
 VerifiableCredentialBaseConstructor.getAllProperties = (identifier) => {
-  const vcDefinition = _.find(definitions, { identifier });
+  const vcDefinition = find(definitions, { identifier });
   if (vcDefinition) {
     const allProperties = [];
-    _.forEach(vcDefinition.depends, (ucaIdentifier) => {
+    forEach(vcDefinition.depends, (ucaIdentifier) => {
       allProperties.push(...Claim.getAllProperties(ucaIdentifier));
     });
     const excludesProperties = [];
-    _.forEach(vcDefinition.excludes, (ucaIdentifier) => {
+    forEach(vcDefinition.excludes, (ucaIdentifier) => {
       excludesProperties.push(...Claim.getAllProperties(ucaIdentifier));
     });
-    return _.difference(allProperties, excludesProperties);
+    return difference(allProperties, excludesProperties);
   }
   return null;
 };

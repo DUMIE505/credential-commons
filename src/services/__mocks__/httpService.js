@@ -1,14 +1,18 @@
 /* eslint-disable max-len */
 
-const _ = require('lodash');
+import assign from 'lodash/assign';
+import isString from 'lodash/isString';
+import find from 'lodash/find';
+import includes from 'lodash/includes';
+
 const logger = require('../../logger');
 
 function HttpServiceConstructor() {
   this.name = 'mockHttp';
   this.request = async (uri, options) => {
     logger.debug(`Mocking request for: ${JSON.stringify({ uri, options }, null, 2)}`);
-    const params = _.isString(uri) ? { url: uri } : uri;
-    _.assign(params, options);
+    const params = isString(uri) ? { url: uri } : uri;
+    assign(params, options);
     const responses = [
       {
         path: '/registry',
@@ -60,7 +64,7 @@ function HttpServiceConstructor() {
 
       },
     ];
-    const res = _.find(responses, r => _.includes(params.url, r.path));
+    const res = find(responses, r => includes(params.url, r.path));
     if (res) {
       return Promise.resolve(res.response);
     }

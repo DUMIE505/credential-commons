@@ -1,4 +1,5 @@
-const _ = require('lodash');
+import includes from 'lodash/includes';
+
 const { definitions, Claim } = require('./claim/Claim');
 const vcDefinitions = require('./creds/definitions');
 /**
@@ -19,14 +20,14 @@ function isClaimRelated(claim, uca, credential) {
     const ucaProperties = Claim.getAllProperties(ucaIdentifier);
 
     // does the claim exists in the Claim?
-    if (_.includes(ucaProperties, claim)) {
+    if (includes(ucaProperties, claim)) {
       // we now have the composite uca, the uca for the claim property, they both are correct
       // we need to check now the UCA is inside the dependencies of the credential refered as parent
       const credentialDefinition = vcDefinitions.find(definition => (
         definition.identifier === credential
       ));
       if (credentialDefinition) {
-        return _.includes(credentialDefinition.depends, ucaIdentifier);
+        return includes(credentialDefinition.depends, ucaIdentifier);
       }
       throw new Error('Credential identifier does not exist');
     } else {
