@@ -79,7 +79,7 @@
     "md5": "^2.2.1",
     "merkle-tools": "^1.4.0",
     "node-fetch": "^2.6.0",
-    "randexp": "^0.4.9",
+    "randexp": "^0.5.3",
     "randomstring": "^1.1.5",
     "request": "^2.87.0",
     "request-promise-native": "^1.0.7",
