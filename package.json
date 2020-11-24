@@ -71,7 +71,7 @@
     "clear": "^0.1.0",
     "cross-env": "^5.1.6",
     "dotenv": "^6.0.0",
-    "figlet": "^1.2.3",
+    "figlet": "^1.5.0",
     "flat": "^4.1.0",
     "inquirer": "^6.5.0",
     "json-format": "^1.0.1",
